@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ballon d'Or AI Arena</title>
+<style>
+:root{--bg:#070914;--panel:#0f1424;--line:#26304a;--text:#f4f7ff;--muted:#9ba7c2;--gold:#ffd65a;--blue:#5ea7ff;--green:#54e39a}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 50% -10%,#182348 0,#070914 45%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:28px 5vw 20px;text-align:center} h1{margin:0;font-size:clamp(28px,5vw,58px);letter-spacing:-2px} h1 span{color:var(--gold)} .sub{color:var(--muted);margin:10px auto 0;max-width:720px}
+.wrap{width:min(1400px,94vw);margin:auto}.toolbar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0 28px}
+button{border:1px solid var(--line);background:#141b30;color:#fff;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer;transition:.2s}
+button:hover{transform:translateY(-1px);border-color:#4e6596} button.primary{background:linear-gradient(135deg,#ffd65a,#ff9f43);color:#17110a;border:0}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.round{background:rgba(15,20,36,.86);border:1px solid var(--line);border-radius:18px;padding:14px;min-height:520px}
+.round h2{font-size:15px;margin:0 0 12px;color:var(--gold)} .match{border:1px solid #202a43;background:#0b1020;border-radius:12px;padding:10px;margin:9px 0}
+.p{display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px}.p.win{background:rgba(84,227,154,.1);color:var(--green)}.p.loss{opacity:.38}.score{color:#6f7b98;font-size:11px}
+.ai{font-size:11px;color:#8290af;margin-top:6px}.champ{margin:25px auto;padding:18px;border:1px solid #6b5620;background:linear-gradient(135deg,rgba(255,214,90,.13),rgba(255,255,255,.03));border-radius:18px;text-align:center;max-width:700px}.champ strong{color:var(--gold);font-size:25px}
+#arenaSection{display:none;margin:36px 0}.arenaBox{background:#080c18;border:1px solid #283452;border-radius:24px;padding:18px}.arenaHead{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}.arenaHead h2{margin:0}.scoreboard{font-weight:800}.hint{color:var(--muted);font-size:13px}
+canvas{display:block;width:100%;height:auto;background:radial-gradient(circle,#15223b,#070b15 68%);border-radius:18px;margin-top:14px}
+.finalNames{display:flex;justify-content:space-between;margin:10px 8px;color:var(--muted);font-weight:700}
+.badge{display:inline-block;padding:5px 9px;border-radius:99px;background:#1b243c;color:#9db5e8;font-size:11px;margin-left:5px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}} @media(max-width:560px){.grid{grid-template-columns:1fr}.round{min-height:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏆 <span>Ballon d'Or</span> AI Arena</h1>
+  <div class="sub">32 игрока • ИИ проводит турнир • два финалиста встречаются на арене, где ворота вращаются по кругу.</div>
+</header>
+<main class="wrap">
+  <div class="toolbar">
+    <button class="primary" id="start">🤖 Запустить турнир ИИ</button>
+    <button id="reset">↻ Сбросить</button>
+  </div>
+  <section class="grid" id="bracket"></section>
+  <div class="champ" id="winnerBox">Победитель появится после прохождения всех раундов.</div>
+
+  <section id="arenaSection">
+    <div class="arenaBox">
+      <div class="arenaHead">
+        <div><h2>🔥 ФИНАЛЬНАЯ АРЕНА <span class="badge">2 игрока</span></h2><div class="hint">Нажимай «Удар» — мяч полетит к воротам. Ворота непрерывно вращаются.</div></div>
+        <div class="scoreboard" id="finalScore">0 : 0</div>
+      </div>
+      <div class="finalNames"><span id="leftName">—</span><span id="rightName">—</span></div>
+      <canvas id="arena" width="1100" height="620"></canvas>
+      <div class="toolbar">
+        <button class="primary" id="kickL">⚽ Удар левого</button>
+        <button class="primary" id="kickR">⚽ Удар правого</button>
+        <button id="autoFinal">🤖 Автофинал</button>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const players=[
+"Лионель Месси","Криштиану Роналду","Килиан Мбаппе","Эрлинг Холанд","Винисиус Жуниор","Ламин Ямаль","Джуд Беллингем","Мохамед Салах","Харри Кейн","Усман Дембеле",
+"Родри","Педри","Флориан Вирц","Виктор Осимхен","Букайо Сака","Коул Палмер","Фил Фоден","Лаутаро Мартинес",
+"Деклан Райс","Мартин Эдегор","Витинья","Рафаэл Леау","Александр Исак","Джамал Мусиала","Хвича Кварацхелия","Рафинья",
+"Кенан Йылдыз","Дезире Дуэ","Николо Барелла","Ашраф Хакими","Антуан Гризманн","Кевин Де Брёйне"
+];
+const rounds=["1/16 финала","1/8 финала","1/4 финала","1/2 финала"];
+let current=players.slice(), history=[], finalists=[], running=false;
+
+function aiPick(a,b){
+  // Демо-логика ИИ: небольшая случайность + скрытая сила, чтобы турнир каждый раз отличался.
+  const power=n => (n.length%17)+Math.random()*30;
+  return power(a)>=power(b)?a:b;
+}
+function render(){
+ const bracket=document.getElementById("bracket"); bracket.innerHTML="";
+ let arr=current;
+ for(let r=0;r<4;r++){
+   const col=document.createElement("div"); col.className="round";
+   col.innerHTML=`<h2>${rounds[r]}</h2>`;
+   const data=history[r]||[];
+   const matches=(data.length?data:[]); 
+   matches.forEach(m=>{
+     const d=document.createElement("div"); d.className="match";
+     d.innerHTML=`<div class="p ${m.w===m.a?'win':'loss'}">${m.a}<span>${m.w===m.a?'✓':''}</span></div>
+                  <div class="p ${m.w===m.b?'win':'loss'}">${m.b}<span>${m.w===m.b?'✓':''}</span></div>
+                  <div class="ai">🤖 ИИ: ${m.w}</div>`;
+     col.appendChild(d);
+   });
+   bracket.appendChild(col);
+ }
+}
+function reset(){
+ current=players.slice();
+ for(let i=current.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[current[i],current[j]]=[current[j],current[i]];}
+ history=[];finalists=[];running=false;
+ document.getElementById("winnerBox").innerHTML="Новая случайная сетка готова. Запусти турнир ИИ.";
+ document.getElementById("arenaSection").style.display="none"; render();
+}
+async function tournament(){
+ if(running)return; running=true; reset(); running=true;
+ for(let r=0;r<4;r++){
+   const arr=current.slice(), out=[], next=[];
+   for(let i=0;i<arr.length;i+=2){const w=aiPick(arr[i],arr[i+1]);out.push({a:arr[i],b:arr[i+1],w});next.push(w)}
+   history.push(out);current=next;render();
+   await new Promise(x=>setTimeout(x,500));
+ }
+ finalists=current.slice(); running=false; render();
+ document.getElementById("winnerBox").innerHTML=`Финалисты: <strong>${finalists[0]}</strong> vs <strong>${finalists[1]}</strong><br><span style="color:#9ba7c2">Теперь всё решит финальная арена.</span>`;
+ setupArena(finalists[0],finalists[1]);
+}
+document.getElementById("start").onclick=tournament; document.getElementById("reset").onclick=reset;
+
+const canvas=document.getElementById("arena"),ctx=canvas.getContext("2d");
+let A={left:"",right:"",angle:0,score:[0,0],balls:[],auto:false,ended:false};
+function setupArena(l,r){
+ A={left:l,right:r,angle:0,score:[0,0],balls:[],auto:false,ended:false};
+ document.getElementById("leftName").textContent=l;document.getElementById("rightName").textContent=r;
+ document.getElementById("finalScore").textContent="0 : 0";document.getElementById("arenaSection").style.display="block";
+ requestAnimationFrame(loop);
+}
+function kick(side){
+ if(A.ended)return;
+ const y=310, x=side===0?190:910, tx=side===0?910:190;
+ A.balls.push({x,y,vx:(tx-x)/105,vy:(Math.random()-.5)*1.2,side,life:0});
+}
+function goalPositions(){
+ const cx=550,cy=310,R=215,w=105,h=28;
+ const arr=[];
+ for(let i=0;i<2;i++){
+  const t=A.angle+i*Math.PI; arr.push({x:cx+Math.cos(t)*R,y:cy+Math.sin(t)*R,t,w,h});
+ } return arr;
+}
+function loop(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const cx=550,cy=310;
+ // arena rings
+ ctx.strokeStyle="#263652";ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,250,0,Math.PI*2);ctx.stroke();
+ ctx.strokeStyle="#16243b";ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,215,0,Math.PI*2);ctx.stroke();
+ // center
+ ctx.fillStyle="#f0c64b";ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);ctx.fill();
+ // rotating goals
+ A.angle+=0.012;
+ for(const g of goalPositions()){
+   ctx.save();ctx.translate(g.x,g.y);ctx.rotate(g.t);
+   ctx.fillStyle="#f3f6ff";ctx.fillRect(-g.w/2,-g.h/2,g.w,g.h);
+   ctx.strokeStyle="#5ea7ff";ctx.lineWidth=3;ctx.strokeRect(-g.w/2,-g.h/2,g.w,g.h);ctx.restore();
+ }
+ // players
+ ctx.fillStyle="#5ea7ff";ctx.beginPath();ctx.arc(170,310,25,0,7);ctx.fill();
+ ctx.fillStyle="#ff6680";ctx.beginPath();ctx.arc(930,310,25,0,7);ctx.fill();
+ ctx.fillStyle="#fff";ctx.font="bold 13px system-ui";ctx.textAlign="center";ctx.fillText("A",170,315);ctx.fillText("B",930,315);
+ // balls
+ for(let i=A.balls.length-1;i>=0;i--){
+   const b=A.balls[i];b.x+=b.vx;b.y+=b.vy;b.vy*=.995;b.life++;
+   ctx.fillStyle=b.side===0?"#66aaff":"#ff7189";ctx.beginPath();ctx.arc(b.x,b.y,10,0,7);ctx.fill();
+   // approximate goal hit zone: if ball crosses near any rotating goal
+   for(const g of goalPositions()){
+     const dx=b.x-g.x,dy=b.y-g.y;
+     if(dx*dx+dy*dy<55*55 && b.life>12){A.score[b.side]++;A.balls.splice(i,1);break;}
+   }
+   if(b.x<-50||b.x>1150||b.y<-50||b.y>670||b.life>220)A.balls.splice(i,1);
+ }
+ document.getElementById("finalScore").textContent=A.score[0]+" : "+A.score[1];
+ if(A.score[0]>=3||A.score[1]>=3){A.ended=true;const w=A.score[0]>=3?A.left:A.right;document.getElementById("winnerBox").innerHTML=`🏆 <strong>${w}</strong> — чемпион AI Arena!`;}
+ if(A.auto&&!A.ended&&Math.random()<.012)kick(Math.random()<.5?0:1);
+ requestAnimationFrame(loop);
+}
+document.getElementById("kickL").onclick=()=>kick(0);
+document.getElementById("kickR").onclick=()=>kick(1);
+document.getElementById("autoFinal").onclick=()=>{A.auto=!A.auto;document.getElementById("autoFinal").textContent=A.auto?"⏸ Остановить автофинал":"🤖 Автофинал";};
+reset();
+</script>
+</body>
+</html>
